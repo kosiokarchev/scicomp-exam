@@ -1,81 +1,23 @@
-import bisect
-from collections import OrderedDict, UserList
-from functools import cached_property, total_ordering
+from collections import OrderedDict
 from itertools import accumulate, chain, islice, takewhile, zip_longest
 from operator import add, itemgetter
 from typing import Callable, Iterable, Literal, Reversible, Sequence, TypeVar
 
-from more_itertools import (always_reversible, bucket, circular_shifts, consume, last, pairwise, prepend, side_effect,
-                            stagger)
+from more_itertools import (always_reversible, consume, pairwise, prepend,
+                            side_effect, stagger)
+
+from .collections import OrderedListDict, PointedList
+from .end_marker import _end_marker
+
+
+__all__ = 'suffix_array',
 
 
 _T = TypeVar('_T')
 _K = TypeVar('_K')
 
-
-class ReversibleList(UserList[_T]):
-    def __reversed__(self) -> Iterable[_T]:
-        i = 0
-        while i+1 <= len(self):
-            i += 1
-            yield self.data[len(self) - i]
-
-
-class PointedList(ReversibleList[_T]):
-    """
-    List that inserts at a particular location and moves that location forward
-    or backward.
-    """
-    @cached_property
-    def _pointer(self):
-        return len(self)
-
-    def insert_at_pointer(self, item: _T, offset=1):
-        self._pointer = (self._pointer + offset,
-                         self.insert(self._pointer, item))[0]
-
-    def clear(self):
-        super().clear()
-        self._pointer = 0
-
-
-class OrderedListDict(ReversibleList[tuple[_K, _T]]):
-    """
-    Rudimentary and inefficient implementation of a supposedly sorted
-    "dictionary" as a list of ``(key, value)`` pairs. No guarantees are made!
-    """
-
-    def keys(self) -> Iterable[_K]:
-        return map(itemgetter(0), self.data)
-
-    def values(self) -> Iterable[_T]:
-        return map(itemgetter(1), self.data)
-
-    def items(self) -> Iterable[tuple[_K, _T]]:
-        return self.data
-
-    def __iter__(self) -> Iterable[tuple[_K, _T]]:
-        return iter(self.data)
-
-    def __contains__(self, item: _K):
-        return item in self.keys()
-
-    def __missing__(self, key):
-        raise KeyError
-
-    def __getitem__(self, item: _K) -> _T:
-        try:
-            return next(filter(lambda kv: kv[0] == item, self.data))[1]
-        except StopIteration:
-            pass
-        return self.__missing__(item)
-
-    def __setitem__(self, key: _K, value: _T):
-        bisect.insort(self.data, (key, value))
-
-
-_SA_Bucket = OrderedDict[str, PointedList[int]]
 _SL = Literal[0, 1, 2]
+_SA_Bucket = OrderedDict[str, PointedList[int]]
 
 
 class SABuckets(OrderedListDict[_K, _SA_Bucket]):
@@ -135,31 +77,19 @@ def get_SL(seq: Reversible) -> Iterable[_SL]:
     )
 
 
-@total_ordering
-class EndMarker:
-    def __repr__(self):
-        return '$'
-
-    def __lt__(self, other):
-        return True
-
-
-_end_marker = EndMarker()
-
-
 def suffix_array(seq: Iterable[_T], assume_marked=False) -> Iterable[int]:
     """Calculate the suffix array (indices that sort the suffices of `seq`)."""
     seq = seq if isinstance(seq, Sequence) else list(seq)
 
     if not (assume_marked or seq[-1] is _end_marker):
-        print('putting a marker on it')
         seq.append(_end_marker)
 
     SL = list(get_SL(seq))
     ssi = list(filter(lambda i: SL[i] == 2, range(len(seq))))
 
     if len(ssi) > 1:
-        ssi_o = list(filter(lambda i: SL[i] == 2, SABuckets(seq, SL, ssi).moditer(len(seq))))
+        ssi_o = list(filter(lambda i: SL[i] == 2,
+                            SABuckets(seq, SL, ssi).moditer(len(seq))))
 
         # Assign "names", which are numbers starting at 1, to each S*-substring,
         # giving the same name to equal substrings. Also, keep track of the
@@ -190,75 +120,11 @@ def suffix_array(seq: Iterable[_T], assume_marked=False) -> Iterable[int]:
                ), 1, None))
                # Distribute names across sparse, meanwhile finding the maximum
                # name, which indicates the number of distinct S*-suffices.
-               if (max(map(itemgetter(1), side_effect(lambda iname: names.__setitem__(*iname), inames)))
+               if (max(map(itemgetter(1),
+                           side_effect(lambda iname: names.__setitem__(*iname),
+                                       inames)))
                    < len(ssi))  # <- need to recurse
                else ssi_o)      # <- already sorted
 
-    # For checking:
-    # ssi_sorted = map(itemgetter(0),
-    #                  sorted(filter(lambda x: x[1] == 2, zip(range(len(seq)), SL)),
-    #                         key=lambda x: seq[x[0]:]))  # type: Iterable[int]
-    # ssi_sorted = list(ssi_sorted)
-
     # first is terminator; don't return it
     return SABuckets(seq, SL, ssi)
-
-
-def bwt_encode(seq: Iterable[_T]) -> Iterable[_T]:
-    """
-    Burrows-Wheeler transform (forward).
-
-    Args:
-        seq: the sequence to encode
-
-    Returns:
-        The Burrows-Wheeler encoded `seq`.
-
-    See Also:
-        `bwt_decode`
-    """
-    if isinstance(seq, str):
-        seq = list(seq)
-        if seq[-1] == '\0':
-            seq[-1] = _end_marker
-    if not isinstance(seq, Sequence):
-        seq = list(seq)
-    return (seq[i-1] if i != 0 else _end_marker for i in suffix_array(seq))
-
-
-def bwt_decode(seq: Iterable[_T]) -> Iterable[_T]:
-    """
-    Burrows-Wheeler transform (reverse).
-
-    Args:
-        seq: the string to decode
-
-    Returns:
-        The Burrows-Wheeler decoded `s`.
-
-    See Also:
-        `bwt_encode`
-    """
-    if not isinstance(seq, Sequence):
-        seq = list(seq)
-
-    # Build two data structures:
-    #   - mpng: maps an element to an array of indices at which it occurs
-    #           lookups in mpng are O(size of alphabet)
-    #   - bucks: boundaries of buckets by element; again O(f(|alphabet|))
-    mpng, bucks = (f(a) for f, a in zip((OrderedListDict, lambda x: x), zip(*(
-        ((key, lbk), total)
-        for total in [0]
-        for key, lbk in sorted(
-            (key, list(b[key])) for b in [
-                bucket(range(len(seq)), lambda i: seq[i])
-            ] for key in b)
-        for total in [total + len(lbk)]))))
-
-    # Each next character is the label of the bucket of the i-th occurence of
-    # the current character, where i is the position in the cureent bucket of
-    # the current position.
-    return (l for i in [seq.index(_end_marker)] for _ in range(len(seq) - 1)
-            for li in [bisect.bisect_left(bucks, i + 1)]
-            for l in [mpng.data[li][0]]
-            for i in [mpng[l][i - bucks[li - 1]]])
