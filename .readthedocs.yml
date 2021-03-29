@@ -1,0 +1,11 @@
+# Required
+version: 2
+sphinx:
+   configuration: docs/source/conf.py
+build:
+  image: testing  # https://github.com/readthedocs/readthedocs.org/issues/7554
+python:
+  version: 3.9
+  install:
+    - method: pip
+      path: .
