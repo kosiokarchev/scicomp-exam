@@ -1,6 +1,6 @@
 from collections import OrderedDict
-from itertools import accumulate, chain, islice, takewhile, zip_longest
-from operator import add, itemgetter
+from itertools import chain, islice
+from operator import itemgetter
 from typing import Callable, Iterable, Literal, Reversible, Sequence, TypeVar
 
 from more_itertools import (always_reversible, consume, pairwise, prepend,
@@ -26,7 +26,6 @@ class SABuckets(OrderedListDict[_K, _SA_Bucket]):
     # To help static inspections...
     __getitem__: Callable[[_K], _SA_Bucket]
     values: Callable[[], Iterable[_SA_Bucket]]
-    __iter__: Callable[[], Iterable[tuple[_K, _SA_Bucket]]]
 
     def __missing__(self, key):
         ret = self.default_factory()
@@ -49,14 +48,14 @@ class SABuckets(OrderedListDict[_K, _SA_Bucket]):
     def __init__(self, seq: Sequence[_K], SL: Sequence[_SL], ssi: Iterable[int]):
         super().__init__()
         consume(chain(
-            # tentatively put S*-suffices in buckets:
+            # tentatively put S*-suffixes in buckets:
             (self[seq[i]]['S'].insert_at_pointer(i) for i in ssi),
-            # induce-sort L-suffices:
+            # induce-sort L-suffixes:
             (self[seq[i - 1]]['L'].insert_at_pointer(i - 1)
              for i in self if not SL[i - 1]),
             # the S buckets need to be cleared and then repopulated:
             (b['S'].clear() for b in self.values()),
-            # induce-sort S/S*-suffices:
+            # induce-sort S/S*-suffixes:
             (self[seq[i - 1]]['S'].insert_at_pointer(i - 1, offset=-1)
              for i in reversed(self) if SL[i - 1])
         ))
@@ -78,7 +77,7 @@ def get_SL(seq: Reversible) -> Iterable[_SL]:
 
 
 def suffix_array(seq: Iterable[_T], assume_marked=False) -> Iterable[int]:
-    """Calculate the suffix array (indices that sort the suffices of `seq`)."""
+    """Calculate the suffix array (indices that sort the suffixes of `seq`)."""
     seq = seq if isinstance(seq, Sequence) else list(seq)
 
     if not (assume_marked or seq[-1] is _end_marker):
@@ -91,40 +90,35 @@ def suffix_array(seq: Iterable[_T], assume_marked=False) -> Iterable[int]:
         ssi_o = list(filter(lambda i: SL[i] == 2,
                             SABuckets(seq, SL, ssi).moditer(len(seq))))
 
-        # Assign "names", which are numbers starting at 1, to each S*-substring,
-        # giving the same name to equal substrings. Also, keep track of the
-        # starting position of the substring
+        # This is "cheating", but whatever. Since the indices of the S* are
+        # sorted in ssi, we can use them to build a mapping that tells us where
+        # a S*-substring ends, given its beginning, which is necessary for the
+        # comparisons in the next step. Lookups in the mapping take linear time,
+        # but we also do ~n lookups, so.... But we could have also implemented
+        # a primitive sparse hasher like below to combat this with random
+        # access, but we simply. won't. bother.
+        ssp1p2 = {p1: p2+1 for p1, p2 in pairwise(chain(ssi, (len(seq),)))}
+
         inames = zip(ssi_o, chain((1,), (
-            1 + a
-            for a in accumulate((
-                # Add 1 if two adjacent S*-substrings are different, else 0
-                not all(a == b for a, b in zip_longest(*((  # iterable comparison
-                    lambda p: chain(  # needs a closure to remember p
-                        (seq[p],),    # start with first S*
-                        # then get all the elements up to and including the next S*
-                        map(itemgetter(0), takewhile(lambda _: _[1] != 2, (
-                            res for prev in [None] for s in islice(zip(seq, SL), p+1, None)
-                            for res in [(s[0], prev)] for prev in [s[1]])))
-                    )
-                )(p) for p in pair)))        # p is start of each substring in pair
-                for pair in pairwise(ssi_o)  # iterate over pairs of consecutive S*-substrings
-            ), add)
+            a for a in [1] for p1, p2 in pairwise(ssi_o)
+            for p1p2, p2p2 in [(ssp1p2[p1], ssp1p2[p2])]
+            for a in [a if seq[p1:p1p2] == seq[p2:p2p2] else a + 1]
         )))
 
         # Now re-sort according to original order. Rudimentary hash sorting
-        # using a sparse array, but hey!, we're going for that O(n) time!
+        # using a sparse array, but hey!, we're going for that O(n) time even
+        # theoretically!
         names = len(seq)*[None]
         ssi = (list(ssi[i] for i in islice(suffix_array(  # recurse if needed
                   # Extract the names from sparse
                   list(filter(lambda x: x is not None, names))
                ), 1, None))
                # Distribute names across sparse, meanwhile finding the maximum
-               # name, which indicates the number of distinct S*-suffices.
+               # name, which indicates the number of distinct S*-suffixes.
                if (max(map(itemgetter(1),
                            side_effect(lambda iname: names.__setitem__(*iname),
                                        inames)))
                    < len(ssi))  # <- need to recurse
                else ssi_o)      # <- already sorted
 
-    # first is terminator; don't return it
     return SABuckets(seq, SL, ssi)

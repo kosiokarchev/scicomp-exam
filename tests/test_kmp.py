@@ -15,3 +15,9 @@ from utils import _get_random_string, random_strings
 def test_kmp(seq: str, subseq_size: int):
     subseq = _get_random_string(randint(0, len(seq))) if subseq_size < 0 else seq[randint(0, len(seq)-subseq_size):][:subseq_size]
     assert kmp_search(subseq, seq) == (None if ((truth := seq.find(subseq)) == -1) else truth)
+
+
+def test_kmp_empty():
+    assert kmp_search('', 'whatever') == 0
+    assert kmp_search('', '') == 0
+    assert kmp_search('whatever', '') is None

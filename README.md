@@ -1,7 +1,5 @@
 ## Scientific Computing and Algorithms @ SISSA 2021
 
-
-
 ### Exam solutions by Kosio Karchev
 [![Build Status](https://travis-ci.com/kosiokarchev/scicomp-exam.svg?branch=master)](https://travis-ci.com/kosiokarchev/scicomp-exam)
 

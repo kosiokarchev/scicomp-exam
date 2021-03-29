@@ -15,14 +15,24 @@ _T = TypeVar('_T')
 
 
 def bwt_encode(seq: Iterable[_T]) -> Iterable[_T]:
-    """
-    Burrows-Wheeler transform (forward).
+    r"""Burrows-Wheeler transform (forward) using suffix arrays.
 
     Args:
-        seq: the sequence to encode
+        seq: the sequence to encode. If not a `collections.abc.Sequence`, it
+            will be implicitly converted to a `list`. Also, an end marker is
+            not strictly required and will be appended automatically. If `seq`
+            is a string, a zero byte (``'\0'``) is recognised as an end marker
+            and converted to the internal representation.
 
     Returns:
-        The Burrows-Wheeler encoded `seq`.
+
+        The Burrows-Wheeler encoded `seq`. See
+        `Wikipedia <https://en.wikipedia.org/wiki/Burrows%E2%80%93Wheeler_transform>`_
+        for more details.
+
+    Warnings:
+        Returns an iterator, so make sure to "consume" it before e.g. saving,
+        or if you plan to re-use the result.
 
     See Also:
         `bwt_decode`
@@ -31,20 +41,31 @@ def bwt_encode(seq: Iterable[_T]) -> Iterable[_T]:
         seq = list(seq)
         if seq[-1] == '\0':
             seq[-1] = _end_marker
-    if not isinstance(seq, Sequence):
-        seq = list(seq)
     return (seq[i-1] if i != 0 else _end_marker for i in suffix_array(seq))
 
 
 def bwt_decode(seq: Iterable[_T]) -> Iterable[_T]:
-    """
-    Burrows-Wheeler transform (reverse).
+    """Burrows-Wheeler transform (reverse).
+
+    Method due to Gusfield `[link] <https://www.cs.ucdavis.edu/~gusfield/cs224f11/BWTcs224.pdf>`_.
 
     Args:
-        seq: the string to decode
+        seq: the sequence to decode. In practice any iterables are accepted,
+            particularly the result of `bwt_encode`. Note that the end marker
+            **has** to be the internal representation. The easiest way to get
+            it right is to use `bwt_encode`, and you should build custom
+            sequences to decode only if you know what you're doing.
 
     Returns:
-        The Burrows-Wheeler decoded `s`.
+
+        The Burrows-Wheeler decoded `seq`. It is generally not of the same
+        object type as the original, though, so care should be taken to do
+        item-by-item comparison, especially with strings, which get decoded
+        into an iterator of length-one strings (characters).
+
+    Warnings:
+        Returns an iterator, so make sure to "consume" it before e.g. saving,
+        or if you plan to re-use the result.
 
     See Also:
         `bwt_encode`

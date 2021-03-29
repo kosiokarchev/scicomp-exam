@@ -41,6 +41,10 @@ class OrderedListDict(ReversibleList[tuple[_K, _T]]):
     "dictionary" as a list of ``(key, value)`` pairs. No guarantees are made!
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dict = dict(self.data)
+
     def keys(self) -> Iterable[_K]:
         return map(itemgetter(0), self.data)
 
@@ -60,11 +64,8 @@ class OrderedListDict(ReversibleList[tuple[_K, _T]]):
         raise KeyError
 
     def __getitem__(self, item: _K) -> _T:
-        try:
-            return next(filter(lambda kv: kv[0] == item, self.data))[1]
-        except StopIteration:
-            pass
-        return self.__missing__(item)
+        return self.dict[item] if item in self.dict else self.__missing__(item)
 
     def __setitem__(self, key: _K, value: _T):
+        self.dict[key] = value
         bisect.insort(self.data, (key, value))
