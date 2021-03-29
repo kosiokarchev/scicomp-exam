@@ -18,10 +18,7 @@ class ReversibleList(UserList[_T]):
 
 
 class PointedList(ReversibleList[_T]):
-    """
-    List that inserts at a particular location and moves that location forward
-    or backward.
-    """
+    """List that inserts at a particular location and moves that location."""
     @cached_property
     def _pointer(self):
         return len(self)

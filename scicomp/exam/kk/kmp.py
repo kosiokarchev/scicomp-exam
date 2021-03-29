@@ -15,8 +15,9 @@ def _kmp_table(needle: Sequence[_T]) -> Sequence[int]:
 
 
 def kmp_search(needle: Sequence[_T], haystack: Iterable[_T]) -> Optional[int]:
-    """Find the first occurence of `needle` in `haystack` using the `KMP
-    algorithm <https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm>`_.
+    """
+    Find the first occurence of `needle` in `haystack` using the `KMP algorithm
+    <https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm>`_.
 
     Args:
         needle: subsequence to search for
