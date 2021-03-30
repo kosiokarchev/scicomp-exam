@@ -17,3 +17,13 @@ running the test "suite".
 
 Extensive documentation with examples and performance review is available at
 [Read the Docs](https://scicomp-exam-kk.readthedocs.io/).
+
+
+---
+
+*The author hereby declares that all the code contained in this repository was
+explicitly typed by himself. Any external code samples were perused only to the
+extent considerable as learning and exclusively in relation to the technical
+implementation in the language Python and not to the implementation of the
+concrete algorithms. Any references used are clearly indicated in the
+accompanying documentation.*
