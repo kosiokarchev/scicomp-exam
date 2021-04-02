@@ -2,6 +2,8 @@
 
 ### Exam solutions by Kosio Karchev
 [![Build Status](https://travis-ci.com/kosiokarchev/scicomp-exam.svg?branch=master)](https://travis-ci.com/kosiokarchev/scicomp-exam)
+[![.github/workflows/workflow.yml](https://github.com/kosiokarchev/scicomp-exam/actions/workflows/workflow.yml/badge.svg)](https://github.com/kosiokarchev/scicomp-exam/actions/workflows/workflow.yml)
+[![codecov](https://codecov.io/gh/kosiokarchev/scicomp-exam/branch/master/graph/badge.svg?token=LW6ET63VN1)](https://codecov.io/gh/kosiokarchev/scicomp-exam)
 [![Documentation Status](https://readthedocs.org/projects/scicomp-exam-kk/badge/?version=latest)](https://scicomp-exam-kk.readthedocs.io/?badge=latest)
 
 
